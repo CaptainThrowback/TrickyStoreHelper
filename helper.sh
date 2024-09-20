@@ -99,9 +99,9 @@ log_print()
 			;;
 	esac
 	if [ "$__VERBOSE" -ge "$1" ]; then
-		echo "$(date '+%m-%d %T.%3N') $LOG_LEVEL $SCRIPTNAME: $2" >> "$LOGFILE"
 		log -p "$LOG_LEVEL" -t "$SCRIPTNAME" "$2"
 	fi
+	echo "$(date '+%m-%d %T.%3N') $LOG_LEVEL $SCRIPTNAME: $2" >> "$LOGFILE" 
 }
 
 log_print 4 "$SCRIPTNAME script start"
