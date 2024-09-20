@@ -1,6 +1,6 @@
 id=trickystorehelper
 name=Tricky Store Helper
-version=v0.1.2
-versionCode=0000120
+version=v0.1.3
+versionCode=0000130
 author=Captain_Throwback
 description=Add all installed packages to target.txt

@@ -16,7 +16,7 @@ MODDIR=${0%/*}
 # If all packages should use option, then leave FORCE_LIST blank
 # and make sure /data/adb/tricky_store/force.txt is not present
 # (more info below)
-FORCE_LEAF_HACK=false
+FORCE_LEAF_HACK=true
 
 # If any packages require manual certificate generation
 # then set below flag to "true" (adds "!" to end of package name)
@@ -36,7 +36,18 @@ FORCE_CERT_GEN=false
 #     "io.github.vvb2060.mahoshojo"
 # )
 FORCE_LIST=(
-
+    "com.google.android.aicore"
+    "com.google.android.apps.bard"
+    "com.google.android.apps.pixel.agent"
+    "com.google.android.apps.pixel.creativeassistant"
+    "com.google.android.apps.privacy.wildlife"
+    "com.google.android.apps.subscriptions.red"
+    "com.google.android.apps.weather"
+    "com.google.android.as"
+    "com.google.android.as.oss"
+    "com.google.android.gms"
+    "com.google.android.gsf"
+    "com.google.android.odad"
 )
 
 # The below variables shouldn't need to be changed
@@ -123,17 +134,17 @@ then
     elif $FORCE_LEAF_HACK
     then
         log_print 4 "FORCE_LEAF_HACK set. Appending '?' to all package names..."
-        pm list packages | cut -d ":" -f 2 | sed s/$/\?/ | sort > "$TARGET_FILE"
+        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|systemui|webview' | sed s/$/\?/ | sort > "$TARGET_FILE"
         log_print 4 "Script complete."
         exit 0
     elif $FORCE_CERT_GEN
     then
         log_print 4 "FORCE_CERT_GEN set. Appending '!' to all package names..." 
-        pm list packages | cut -d ":" -f 2 | sed s/$/\!/ | sort > "$TARGET_FILE"
+        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|systemui|webview' | sed s/$/\!/ | sort > "$TARGET_FILE"
         log_print 4 "Script complete."
         exit 0
     else
-        pm list packages | cut -d ":" -f 2 | sort > "$TARGET_FILE"
+        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|systemui|webview' | sort > "$TARGET_FILE"
         log_print 4 "Packages added to target.txt. Script complete."
         exit 0
     fi
