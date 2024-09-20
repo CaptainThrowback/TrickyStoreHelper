@@ -7,54 +7,28 @@ MODDIR=${0%/*}
 # Add all installed packages to target.txt at boot
 #
 #
-# NOTE: Only ONE of the below options can be set to true! 
-# Leaving both options set to false will use auto mode,
-# which is suitable for most devices and packages
-#
-# If any packages require manual leaf cert hack
-# then t below flag to "true" (adds "?" to end of package name)
-# If all packages should use option, then leave FORCE_LIST blank
-# and make sure /data/adb/tricky_store/force.txt is not present
-# (more info below)
-FORCE_LEAF_HACK=true
-
-# If any packages require manual certificate generation
-# then set below flag to "true" (adds "!" to end of package name)
-# If all packages should use option, then leave FORCE_LIST blank
-# and make sure /data/adb/tricky_store/force.txt is not present
-# (more info below)
-FORCE_CERT_GEN=false
-
-# If only specific packages require one of the above options
-# (like on Pixel 9 Series devices), either add them to
-# /data/adb/tricky_store/force.txt or add them to the list below
-# Use the above flags to choose which manual mode should be used
-# Example:
-# FORCE_LIST=(
-#     "icu.nullptr.nativetest"
-#     "io.github.vvb2060.keyattestation"
-#     "io.github.vvb2060.mahoshojo"
-# )
-FORCE_LIST=(
-    "com.google.android.aicore"
-    "com.google.android.apps.bard"
-    "com.google.android.apps.pixel.agent"
-    "com.google.android.apps.pixel.creativeassistant"
-    "com.google.android.apps.privacy.wildlife"
-    "com.google.android.apps.subscriptions.red"
-    "com.google.android.apps.weather"
-    "com.google.android.as"
-    "com.google.android.as.oss"
-    "com.google.android.gms"
-    "com.google.android.gsf"
-    "com.google.android.odad"
-)
-
-# The below variables shouldn't need to be changed
-# unless you want to call the script something else
+# The below variable shouldn't need to be changed
+# unless you want to call the log/tag something else
 SCRIPTNAME="TSHelper"
-LOGFILE=/data/adb/tricky_store/helper-log.txt
-rm -rf "$LOGFILE"
+
+# Module files
+TS_FOLDER="/data/adb/tricky_store"
+TS_HELPER="$TS_FOLDER/helper"
+CONFIG_FILE="$TS_HELPER/config.txt"
+EXCLUDE_FILE="$TS_HELPER/exclude.txt"
+FORCE_FILE="$TS_HELPER/force.txt"
+LOG_FILE="$TS_HELPER/$SCRIPTNAME.log"
+
+# Prepare the folders
+if [ -d "$TS_FOLDER" ]
+then
+    mkdir -p "$TS_HELPER"
+else
+    FATAL_ERROR="TrickyStore folder not found. Please install TrickyStore to use this module."
+    log -p "F" -t "$SCRIPTNAME" "$FATAL_ERROR"
+    echo "$FATAL_ERROR"
+    exit 1
+fi
 
 # Set default log level
 DEFAULT_LOGLEVEL=3
@@ -65,8 +39,12 @@ DEFAULT_LOGLEVEL=3
 # 4 Fatal, Errors, Warnings, and Information
 # 5 Fatal, Errors, Warnings, Information, and Debugging
 # 6 All logs printed
-CUSTOM_LOGLEVEL=$(getprop $SCRIPTNAME.loglevel)
-if [ -n "$CUSTOM_LOGLEVEL" ]; then
+if [ -f "$CONFIG_FILE" ]
+then
+    CUSTOM_LOGLEVEL=$(grep '^CUSTOM_LOGLEVEL=' $CONFIG_FILE | cut -d '=' -f 2)
+fi
+if [ -n "$CUSTOM_LOGLEVEL" ]
+then
 	__VERBOSE="$CUSTOM_LOGLEVEL"
 else
 	__VERBOSE="$DEFAULT_LOGLEVEL"
@@ -74,7 +52,8 @@ fi
 
 # Exit codes:
 # 0 Success
-# 1 Leaf Hack & Cert Gen both set to true
+# 1 TrickyStore folder missing
+# 2 Leaf Hack & Cert Gen both set to true
 
 # Function for logging to logcat and log file
 log_print()
@@ -109,96 +88,190 @@ log_print()
 			LOG_LEVEL="V"
 			;;
 	esac
-	if [ "$__VERBOSE" -ge "$1" ]; then
+	if [ "$__VERBOSE" -ge "$1" ]
+    then
 		log -p "$LOG_LEVEL" -t "$SCRIPTNAME" "$2"
 	fi
-	echo "$(date '+%m-%d %T.%3N') $LOG_LEVEL $SCRIPTNAME: $2" >> "$LOGFILE" 
+	echo "$(date '+%m-%d %T.%3N') $LOG_LEVEL $SCRIPTNAME: $2" >> "$LOG_FILE" 
 }
 
+# Clear old files
+rm -rf "$LOG_FILE"
+rm -rf "$TARGET_TMP"
+rm -rf "$TARGET_FILE"
+
+# DEBUG: Base Logging
+log_print 5 "LOGLEVEL=$__VERBOSE"
+
+# NOTE: Only ONE of the below options can be set to true! 
+# Leaving both options set to false will use auto mode,
+# which is suitable for most devices and packages
+#
+# If any packages require manual leaf cert hack
+# then set below flag to "true" (adds "?" to end of package name)
+# If all packages should use option, then leave FORCE_LIST blank
+# and make sure /data/adb/tricky_store/helper/force.txt is not present
+# (more info below)
+if [ -f "$CONFIG_FILE" ]
+then
+    FORCE_LEAF_HACK=$(grep '^FORCE_LEAF_HACK=' "$CONFIG_FILE" | cut -d '=' -f 2)
+fi
+if [ -z "$FORCE_LEAF_HACK" ]
+then
+    FORCE_LEAF_HACK=false
+fi
+# DEBUG: Base Logging
+log_print 5 "FORCE_LEAF_HACK=$FORCE_LEAF_HACK"
+
+# If any packages require manual certificate generation
+# then set below flag to "true" (adds "!" to end of package name)
+# If all packages should use option, then leave FORCE_LIST blank
+# and make sure /data/adb/tricky_store/helper/force.txt is not present
+# (more info below)
+if [ -f "$CONFIG_FILE" ]
+then
+    FORCE_CERT_GEN=$(grep '^FORCE_CERT_GEN=' "$CONFIG_FILE" | cut -d '=' -f 2)
+fi
+if [ -z "$FORCE_CERT_GEN" ]
+then
+    FORCE_CERT_GEN=false
+fi
+# DEBUG: Base Logging
+log_print 5 "FORCE_CERT_GEN=$FORCE_CERT_GEN"
+
+if $FORCE_LEAF_HACK && $FORCE_CERT_GEN
+    then
+        log_print 1 "Leaf hack and Certificate generation both set to true."
+        log_print 1 "Set one or both to false to run properly. Script exiting."
+        exit 2
+fi
+
+add_to_list() {
+    if [ -f "$1" ]
+    then
+        PACKAGE_LIST=()
+        while IFS='' read -r package || [ -n "$package" ]
+        do
+            PACKAGE_LIST+=("$package")
+        done < "$1"
+        case "$2" in
+            "EXCLUDE_LIST")
+                EXCLUDE_LIST=("${PACKAGE_LIST[@]}")
+                ;;
+            "FORCE_LIST")
+                FORCE_LIST=("${PACKAGE_LIST[@]}")
+                ;;
+        esac
+    fi
+}
+
+process_package_list() {
+    while read package
+    do
+        case "$1" in
+            "EXCLUDE_LIST")
+                PACKAGE_LIST=("${EXCLUDE_LIST[@]}")
+                ;;
+            "FORCE_LIST")
+                PACKAGE_LIST=("${FORCE_LIST[@]}")
+                ;;
+        esac
+        for list_item in "${PACKAGE_LIST[@]}"
+        do
+            EXISTS=0
+            if [ "$list_item" = "$package" ]
+            then
+                EXISTS=1
+                break
+            fi 
+        done
+        case "$1" in
+            "EXCLUDE_LIST")
+                if [ "$EXISTS" -eq 1 ]
+                then
+                    sed -i "/^$package$/d" "$TARGET_FILE"
+                fi
+                ;;
+            "FORCE_LIST")
+                if [ "$EXISTS" -eq 1 ]
+                then
+                    if $FORCE_LEAF_HACK && (( ${#FORCE_LIST[@]} != 0 ))
+                    then
+                        sed -i s/"$package"$/"$package"\?/ "$TARGET_FILE"
+                    fi
+                    if $FORCE_CERT_GEN && (( ${#FORCE_LIST[@]} != 0 ))
+                    then
+                        sed -i s/"$package"$/"$package"\!/ "$TARGET_FILE"
+                    fi
+                fi
+                ;;
+        esac
+    done < "$TARGET_FILE"
+}
+
+finish_success() {
+    log_print 4 "Script complete."
+    exit 0
+}
+
+# If specific packages need to be excluded from the target list,
+# add them to /data/adb/tricky_store/helper/exclude.txt
+# Use the above flags to choose which manual mode should be used
+add_to_list "$EXCLUDE_FILE" "EXCLUDE_LIST"
+
+# Default exclusions
+DEFAULT_EXCLUSIONS=(
+    "^android"
+    "^com.android"
+    "com.google.android.apps.nexuslauncher"
+    "overlay"
+    "systemui"
+    "webview"
+) 
+DEFAULT_EXCLUSIONS_LIST=$(printf '%s|' "${DEFAULT_EXCLUSIONS[@]}")
+
+# If only specific packages require one of the above options,
+# add them to /data/adb/tricky_store/helper/force.txt
+# Use the above flags to choose which manual mode should be used
+add_to_list "$FORCE_FILE" "FORCE_LIST"
+
+# Script processing start
 log_print 4 "$SCRIPTNAME script start"
 log_print 4 "Boot complete. $SCRIPTNAME processing begin"
 
 # Location of TrickyStore files
-FORCE_FILE="/data/adb/tricky_store/force.txt"
-TARGET_FILE="/data/adb/tricky_store/target.txt"
-TARGET_TMP="$MODDIR/target_tmp.txt"
+TARGET_FILE="$TS_FOLDER/target.txt"
 
 # Add ALL the packages to target.txt
-if [ ! -f "$FORCE_FILE" ] && (( ${#FORCE_LIST[@]} == 0 ))
+pm list packages | cut -d ":" -f 2 | grep -Ev "${DEFAULT_EXCLUSIONS_LIST%?}" | sort > "$TARGET_FILE"
+
+# Remove excluded packages
+if (( ${#EXCLUDE_LIST[@]} != 0 ))
 then
-    if $FORCE_LEAF_HACK && $FORCE_CERT_GEN
-    then
-        log_print 1 "Leaf hack and Certificate generation both set to true."
-        log_print 1 "Set one or both to false for script to run properly. Script exiting."
-        exit 1
-    elif $FORCE_LEAF_HACK
+    process_package_list "EXCLUDE_LIST"
+fi
+
+# Tag force packages
+if (( ${#FORCE_LIST[@]} == 0 ))
+then
+    if $FORCE_LEAF_HACK
     then
         log_print 4 "FORCE_LEAF_HACK set. Appending '?' to all package names..."
-        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|overlay|systemui|webview' | sed s/$/\?/ | sort > "$TARGET_FILE"
-        log_print 4 "Script complete."
-        exit 0
+        sed -i s/$/\?/ "$TARGET_FILE"
+        finish_success
     elif $FORCE_CERT_GEN
     then
         log_print 4 "FORCE_CERT_GEN set. Appending '!' to all package names..." 
-        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|overlay|systemui|webview' | sed s/$/\!/ | sort > "$TARGET_FILE"
-        log_print 4 "Script complete."
-        exit 0
+        sed -i s/$/\!/ "$TARGET_FILE"
+        finish_success
     else
-        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|overlay|systemui|webview' | sort > "$TARGET_FILE"
-        log_print 4 "Packages added to target.txt. Script complete."
-        exit 0
+        finish_success
     fi
 else
-    pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|overlay|systemui|webview' | sort > "$TARGET_TMP"
-    log_print 4 "Packages added to temp target.txt. Proceeding..."
+    if $FORCE_LEAF_HACK || $FORCE_CERT_GEN
+    then
+        process_package_list "FORCE_LIST"
+    fi
 fi
 
-# Check for force options and set list from file or above, if enabled
-if $FORCE_LEAF_HACK || $FORCE_CERT_GEN
-then
-    if [ -f "$FORCE_FILE" ]
-    then
-        FORCE_LIST=()
-        while IFS='' read -r force || [ -n "$force" ]
-        do
-            FORCE_LIST+=("$force")
-        done < "$FORCE_FILE"
-    fi
-else
-    # We're done!
-    log_print 4 "Packages added to target.txt. Script complete."
-    mv -f "$TARGET_TMP" "$TARGET_FILE"
-    exit 0
-fi
-
-# Update packages from Force list
-rm -rf "$TARGET_FILE"
-while read package
-do
-    for list_item in "${FORCE_LIST[@]}"
-    do
-        FORCE=0
-        if [ "$list_item" = "$package" ]
-        then
-            FORCE=1
-            break
-        fi 
-    done
-    if [ "$FORCE" -eq 0 ]
-    then
-        echo "$package" >> "$TARGET_FILE"
-    else
-        if $FORCE_LEAF_HACK
-        then
-            echo "$package?" >> "$TARGET_FILE"
-        fi
-        if $FORCE_CERT_GEN
-        then
-            echo "$package!" >> "$TARGET_FILE"
-        fi
-    fi
-done < "$TARGET_TMP"
-
-rm -rf "$TARGET_TMP"
-
-exit 0
+finish_success
