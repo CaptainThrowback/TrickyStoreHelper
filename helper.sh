@@ -227,8 +227,22 @@ DEFAULT_EXCLUSIONS=(
     "overlay"
     "systemui"
     "webview"
-) 
-DEFAULT_EXCLUSIONS_LIST=$(printf '%s|' "${DEFAULT_EXCLUSIONS[@]}")
+)
+if [ -f "$CONFIG_FILE" ]
+then
+    USE_DEFAULT_EXCLUSIONS=$(grep '^USE_DEFAULT_EXCLUSIONS=' "$CONFIG_FILE" | cut -d '=' -f 2)
+fi
+if [ -z "$USE_DEFAULT_EXCLUSIONS" ]
+then
+    USE_DEFAULT_EXCLUSIONS=true
+fi
+if [ "$USE_DEFAULT_EXCLUSIONS" = "true" ]
+then
+    DEFAULT_EXCLUSIONS_LIST=$(printf '%s|' "${DEFAULT_EXCLUSIONS[@]}")
+fi
+
+# DEBUG: Base Logging
+log_print 5 "USE_DEFAULT_EXCLUSIONS=$USE_DEFAULT_EXCLUSIONS"
 
 # If only specific packages require one of the above options,
 # add them to /data/adb/tricky_store/helper/force.txt
@@ -237,13 +251,18 @@ add_to_list "$FORCE_FILE" "FORCE_LIST"
 
 # Script processing start
 log_print 4 "$SCRIPTNAME script start"
-log_print 4 "Boot complete. $SCRIPTNAME processing begin"
+log_print 4 "Boot complete. $SCRIPTNAME processing "
 
 # Location of TrickyStore files
 TARGET_FILE="$TS_FOLDER/target.txt"
 
 # Add ALL the packages to target.txt
-pm list packages | cut -d ":" -f 2 | grep -Ev "${DEFAULT_EXCLUSIONS_LIST%?}" | sort > "$TARGET_FILE"
+if [ -n "$DEFAULT_EXCLUSIONS_LIST" ]
+then
+    pm list packages | cut -d ":" -f 2 | grep -Ev "${DEFAULT_EXCLUSIONS_LIST%?}" | sort > "$TARGET_FILE"
+else
+    pm list packages | cut -d ":" -f 2 | sort > "$TARGET_FILE"
+fi
 
 # Remove excluded packages
 if (( ${#EXCLUDE_LIST[@]} != 0 ))
