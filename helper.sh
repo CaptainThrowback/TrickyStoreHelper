@@ -134,22 +134,22 @@ then
     elif $FORCE_LEAF_HACK
     then
         log_print 4 "FORCE_LEAF_HACK set. Appending '?' to all package names..."
-        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|systemui|webview' | sed s/$/\?/ | sort > "$TARGET_FILE"
+        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|overlay|systemui|webview' | sed s/$/\?/ | sort > "$TARGET_FILE"
         log_print 4 "Script complete."
         exit 0
     elif $FORCE_CERT_GEN
     then
         log_print 4 "FORCE_CERT_GEN set. Appending '!' to all package names..." 
-        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|systemui|webview' | sed s/$/\!/ | sort > "$TARGET_FILE"
+        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|overlay|systemui|webview' | sed s/$/\!/ | sort > "$TARGET_FILE"
         log_print 4 "Script complete."
         exit 0
     else
-        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|systemui|webview' | sort > "$TARGET_FILE"
+        pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|overlay|systemui|webview' | sort > "$TARGET_FILE"
         log_print 4 "Packages added to target.txt. Script complete."
         exit 0
     fi
 else
-    pm list packages | cut -d ":" -f 2 | sort > "$TARGET_TMP"
+    pm list packages | cut -d ":" -f 2 | grep -Ev '^android|^com.android|com.google.android.apps.nexuslauncher|overlay|systemui|webview' | sort > "$TARGET_TMP"
     log_print 4 "Packages added to temp target.txt. Proceeding..."
 fi
 
